@@ -30,12 +30,26 @@ height = 216
 STYLE_WEIGHTS = [1, 1e0, 1e0, 1e0]
 
 
+def save_losses(dict_ref, output_array_name):
+    os.makedirs("runs/loss/", exist_ok=True)
+    for type_loss, loss_array in dict_ref.items():
+        os.makedirs(f"runs/loss/{type_loss}/", exist_ok=True)
+        np.save(f"runs/loss/{type_loss}/{output_array_name}.npy", np.array(loss_array))
 
 
 def train2(args, data_train, data_test, model_style, model_loss, optimizer, device, style_img, mse_loss, msesum_loss,
           normalization_mean, normalization_std):
     print('args:', args)
-
+#     print(loss_dict)
+    loss_dict = {
+        "total_loss": [],
+        "temp_feature_loss": [],
+        "temp_output_loss": [],
+        "content_loss": [],
+        "style_loss": [],
+        "reg_loss": []
+        }
+    print(loss_dict)
     normalization = Normalization(normalization_mean, normalization_std)
 
     style_img_list = []
@@ -162,10 +176,37 @@ def train2(args, data_train, data_test, model_style, model_loss, optimizer, devi
              
             loss = temp_feature_loss + temp_output_loss + content_loss  + style_loss  + reg_loss
             loss.backward()
-
+#             print("Saving losses for thi
+            #### Saving losses #####
+            loss_dict["total_loss"].append(loss)
+            loss_dict["temp_feature_loss"].append(temp_feature_loss)
+            loss_dict["temp_output_loss"].append(temp_output_loss)
+            loss_dict["content_loss"].append(content_loss)
+            loss_dict["style_loss"].append(style_loss)
+            loss_dict["reg_loss"].append(reg_loss)
+            ######################
 
             optimizer.step()
-
+        ## When finished an epoch, save the model##
+        if args.save_model:
+            print(f"Finished epoch #{count[0]}/{args.epochs}, now saving the model")
+            if (not os.path.exists(args.save_directory)):
+                os.mkdir(args.save_directory)
+            time_str = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+            torch.save(model_style.state_dict(), os.path.join(args.save_directory, 'style25_%s_%s.pt' % (args.phase,time_str)))
+            print(f"Model saved at style25_{args.phase}_{time_str}.pt")
+            print(f"Also saving the losses")
+            save_losses(loss_dict, output_array_name=f"style25_epoch_{count[0]}")
+	    #restarting dict ##
+            loss_dict = {
+                    "total_loss": [],
+                    "temp_feature_loss": [],
+                    "temp_output_loss": [],
+                    "content_loss": [],
+                    "style_loss": [],
+                    "reg_loss": []
+                    }
+            print("finished saving the losses")
 
     if (args.save_model):
         if (not os.path.exists(args.save_directory)):
@@ -173,7 +214,7 @@ def train2(args, data_train, data_test, model_style, model_loss, optimizer, devi
         time_str = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
         torch.save(model_style.state_dict(), os.path.join(args.save_directory, 'style25_%s_%s.pt' % (args.phase,time_str)))
 
-
+    print(f"Training finished, yay!")
 def main():
     parser = argparse.ArgumentParser(description='Style Transfer')
     parser.add_argument('--batch-size', type=int, default=4, metavar='N',
@@ -215,11 +256,13 @@ def main():
     cnn_normalization_std = torch.tensor([0.229, 0.224, 0.225]).to(device)
 
     args = parser.parse_args()
-
-   ## args.path = r'F:\DATASET\MPI-Sintel-complete'
-    args.path ='.'
+    print("args parsed!")
+    print(args)
+    ## args.path = r'F:\DATASET\MPI-Sintel-complete'
+#     args.path ='.'
     ##style_img = Image.open(os.path.join(args.path, args.style_name))
-	style_img = Image.open(args.style_name)
+    
+    style_img = Image.open(args.style_name)
     style_img = style_img.resize((weight, height),Image.BILINEAR)
     style_img = torchvision.transforms.ToTensor()(style_img)
 
@@ -235,14 +278,15 @@ def main():
     optimizer=optim.Adamax(model_style.parameters(),lr=args.lr)
 
     print('=====>Loading Data')
-    os.chdir(args.path)
+    #os.chdir(args.path)
     dataset_train = load_data(os.path.join(args.path, 'train'))
-    dataset_test = load_data(os.path.join(args.path, 'test'))
+    dataset_test = [] #load_data(os.path.join(args.path, 'test'))
+
     print('train len:', len(dataset_train))
     print('test len:', len(dataset_test))
 
     data_train = DataLoader(dataset=dataset_train, batch_size=args.batch_size, shuffle=True)
-    data_test = DataLoader(dataset=dataset_test, batch_size=args.test_batch_size)
+    data_test = None #DataLoader(dataset=dataset_test, batch_size=args.test_batch_size)
 
     sample = dataset_train[0]
     print(len(sample))
