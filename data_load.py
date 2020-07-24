@@ -140,8 +140,9 @@ def warp2(img, flow, device):
 
 def main():
     # data=MPIDataSet(r'F:\DATASET\MPI-Sintel-complete\training')
-    os.chdir(r'F:\DATASET\MPI-Sintel-complete')
-    data = load_data(r'F:\DATASET\MPI-Sintel-complete\train')
+    #os.chdir(r'F:\DATASET\MPI-Sintel-complete')
+    #data = load_data(r'F:\DATASET\MPI-Sintel-complete\train')
+    data = load_data('../MPI-Dataset/train')
     sample = data[0]
     print(torch.max(sample[3]), torch.min(sample[3]))
     warp(sample[0].unsqueeze(0), sample[3].unsqueeze(0))
@@ -176,5 +177,5 @@ def test():
 
 
 if __name__ == '__main__':
-    main()
-    # test()
+    #main()
+    test()
