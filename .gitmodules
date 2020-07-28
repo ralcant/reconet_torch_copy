@@ -1,0 +1,3 @@
+[submodule "avatarify/fomm"]
+	path = avatarify/fomm
+	url = https://github.com/alievk/first-order-model.git
