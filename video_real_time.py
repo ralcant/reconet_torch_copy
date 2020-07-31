@@ -48,19 +48,31 @@ import torch
 import numpy as np
 from network import ReCoNet
 import sys
-
+import pyaudio 
+import wave
+from audio_handler import VideoPlay
 from model_creator import get_all_models
 
 
-def video_real_time( video_source_path, device):#, output_dir='output.avi', fps=30, concat=False):
+def video_real_time( video_source_path, audio_path, device):#, output_dir='output.avi', fps=30, concat=False):
     assert os.path.exists(video_source_path), f"Video path {video_source_path}, doesnt exist!"
     vid_obj = cv2.VideoCapture(video_source_path)
+    #### Audio Processing ######
 
-    # video_dir = output_dir #os.path.join(path, output_dir)
-    w  = 640 #int(vid_obj.get(cv2.CAP_PROP_FRAME_WIDTH) /3 ) # dividing because we will be resizing!
-    h = 360 #int(vid_obj.get(cv2.CAP_PROP_FRAME_HEIGHT) /3 )# float
+    audio_controler = VideoPlay(
+        video_path=video_source_path,
+        audio_path= audio_path,
+        nframes = vid_obj.get(cv2.CAP_PROP_FRAME_COUNT),
+        spf = 1/(vid_obj.get(cv2.CAP_PROP_FPS))
+    )
+    ##########
+    # If w and h are small enough, then the process will be faster
+    w  = 320 #int(vid_obj.get(cv2.CAP_PROP_FRAME_WIDTH) /3 ) # dividing because we will be resizing!
+    h = 180 #int(vid_obj.get(cv2.CAP_PROP_FRAME_HEIGHT) /3 )# float
     img_size = (w, h)
-    frame_count = 0
+    total_frame_count = 0
+    frame_count_fps = 0
+    process_time = 0
     print(f"img_shape = {img_size}")
 
 
@@ -69,33 +81,44 @@ def video_real_time( video_source_path, device):#, output_dir='output.avi', fps=
 
     start = True
     curr_model = None
-    models = get_all_models(device)
+    models, originals = get_all_models(device)
     curr_model = models[0]
     print("models trained!")
     # cv2.imshow("test", np.array([[1, 2], [3, 4  ]]))
     # cap = cv2.VideoCapture(0)
     # frame, rate = cap.read()
     # cv2.imshow('test', frame)
+    start_time = datetime.datetime.now()
+    
     try:
         while True:
             key = cv2.waitKey(1)
-            if key != -1:
-                print(f"key = {key}")
-
-            # print(key)
-            if key == ord('s'):
+            #if key != -1:
+            #    print(f"key = {key}")
+            if key == ord('s'): #Press s = start!
                 start = True
                 start_time=datetime.datetime.now()
+                frame_count_fps = total_frame_count
                 print("starting...")
-            if key == ord('q'): #quit
+            if key == ord('q'): #Press q = quit!
+                print("Quitting!")
                 break
-            if 48 < key < 58:
+            if 48 < key < 58: #Press 1-9: Change between models!
                 curr_model = (key-49) % len(models) #min(key - 49, len(models) - 1)
+                print(f"Pressed key {key-48}, loading model #{key-48}")
                 curr_model = models[curr_model]
+            if key == 48:     #Press 0 = original frame
+                print("Showing original")
+                curr_model = None
+            if key == ord('p'):
+                print("Pausing... press S to start!")
+                start = False
+                process_time += (datetime.datetime.now()-start_time).total_seconds()
             if start:
                 success, image = vid_obj.read() 
                 if not success: #Finished video!
                     break
+                #print(image.shape)
                 frame = cv2.resize(image, dsize=(w, h))#,fx=1/3, fy=1/3)
                 if curr_model is not None:
                     frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
@@ -110,14 +133,22 @@ def video_real_time( video_source_path, device):#, output_dir='output.avi', fps=
                     frame = concat_cv2 * 255
                     frame = frame.astype('uint8')
                     frame=cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
+                    frame = cv2.resize(frame, dsize=(640, 360))
+                cv2.imshow("video!", frame)
+                audio_controler.play_audio_for_frame(total_frame_count)
+                total_frame_count+=1
 
-                    cv2.imshow("video!", frame)
-                    frame_count+=1
-                    # print(f"FPS = {frame_count/(datetime.datetime.now()-start_time).total_seconds()}")
+                log_fps = False # This might affect the speed of the process..?
+                if log_fps:
+                   fps = (total_frame_count-frame_count_fps)/(datetime.datetime.now()-start_time).total_seconds()
+                   print(f"FPS = {fps}")
         # video_writer.release()
     except KeyboardInterrupt:
         print("Keyboard Interrupt!")
-
+    process_time += (datetime.datetime.now()-start_time).total_seconds() #To take into account frames before pause
+    audio_controler.close()
+    print(f"Video duration: {5}s")
+    print(f"Process duration (not counting pauses): {process_time}")
     cv2.destroyAllWindows()
     # end_time=datetime.datetime.now()
     # print('end time:',end_time.strftime('%Y/%m/%d %H:%M:%S'))
@@ -128,57 +159,60 @@ def video_real_time( video_source_path, device):#, output_dir='output.avi', fps=
 
 if __name__ == "__main__":
     
-    device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-    with open('avatarify/config.yaml', 'r') as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
-    global display_string
-    display_string = ""
-    log('Starting process..')
-    predictor_args = {
-        'config_path': opt.config,
-        'checkpoint_path': opt.checkpoint,
-        'relative': opt.relative,
-        'adapt_movement_scale': opt.adapt_scale,
-        'enc_downscale': opt.enc_downscale
-    }
-    if opt.is_worker:
-        log("opt.is_worker")
-        sys.exit(0)
-        # from avatarify.afy import predictor_worker
-        # predictor_worker.run_worker(opt.in_port, opt.out_port)
-        # sys.exit(0)
-    elif opt.is_client:
-        log("opt.is_client")
-        from avatarify.afy import predictor_remote
-        try:
-            predictor = predictor_remote.PredictorRemote(
-                in_addr=opt.in_addr, out_addr=opt.out_addr,
-                **predictor_args
-            )
-        except ConnectionError as err:
-            log(err)
-            sys.exit(1)
-        log("Predictor initialized!")
-        predictor.start()
-        log("Predictor started...")
-    else:
-        log("not opt.is_client and not opt.is_worker")
-        sys.exit(0)
-        # from avatarify.afy import predictor_local
-        # predictor = predictor_local.PredictorLocal(
-        #     **predictor_args
-        # )
-    log("Trying to select camera")
-    cam_id = select_camera(config)
+    # with open('avatarify/config.yaml', 'r') as f:
+    #     config = yaml.load(f, Loader=yaml.FullLoader)
+    # global display_string
+    # display_string = ""
+    # log('Starting process..')
+    # predictor_args = {
+    #     'config_path': opt.config,
+    #     'checkpoint_path': opt.checkpoint,
+    #     'relative': opt.relative,
+    #     'adapt_movement_scale': opt.adapt_scale,
+    #     'enc_downscale': opt.enc_downscale
+    # }
+    # if opt.is_worker:
+    #     log("opt.is_worker")
+    #     sys.exit(0)
+    #     # from avatarify.afy import predictor_worker
+    #     # predictor_worker.run_worker(opt.in_port, opt.out_port)
+    #     # sys.exit(0)
+    # elif opt.is_client:
+    #     log("opt.is_client")
+    #     from avatarify.afy import predictor_remote
+    #     try:
+    #         predictor = predictor_remote.PredictorRemote(
+    #             in_addr=opt.in_addr, out_addr=opt.out_addr,
+    #             **predictor_args
+    #         )
+    #     except ConnectionError as err:
+    #         log(err)
+    #         sys.exit(1)
+    #     log("Predictor initialized!")
+    #     predictor.start()
+    #     log("Predictor started...")
+    # else:
+    #     log("not opt.is_client and not opt.is_worker")
+    #     sys.exit(0)
+    #     # from avatarify.afy import predictor_local
+    #     # predictor = predictor_local.PredictorLocal(
+    #     #     **predictor_args
+    #     # )
+    # log("Trying to select camera")
+    # cam_id = select_camera(config)
 
-    if cam_id is None:
-        log("exiting...")
-        exit(1)
-    log("continuing...")
+    # if cam_id is None:
+    #     log("exiting...")
+    #     exit(1)
+    # log("continuing...")
 
 
     if opt.mode == "video_real_time":
-        video_real_time(opt.video_source_path, device)
+        video_name = opt.video_source
+        video_path = f"videos/{video_name}.mp4"
+        audio_path = f"audios/{video_name}.wav"
+        video_real_time(video_path, audio_path, device)
     else:
         print(f"mode: {opt.mode} is not supported here. See video_cv2.py for other modes")
