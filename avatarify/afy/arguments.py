@@ -47,8 +47,8 @@ parser.add_argument('--imgs-path', type=str, default='',
 
 parser.add_argument('--model-name', type=str, default='',
                     help='model name')
-parser.add_argument('--video-source-path', type=str, required=True, 
-                    help="path of original path")
+parser.add_argument('--video-source', type=str, required=True, 
+                    help="Name of source video. Should be in the videos/ folder")
 ##############################
 opt = parser.parse_args()
 

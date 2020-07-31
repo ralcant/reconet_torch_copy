@@ -3,3 +3,5 @@ frames/
 models/
 trained_models/
 runs/
+audios/
+__pycache__/*
