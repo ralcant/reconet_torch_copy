@@ -1,4 +1,4 @@
-from argparse import ArgumentParser
+from argparse import ArgumentParser, ArgumentTypeError
 
 # def get_parser():
 parser = ArgumentParser()
@@ -30,7 +30,12 @@ parser.set_defaults(relative=False)
 parser.set_defaults(adapt_scale=False)
 parser.set_defaults(no_pad=False)
 
-
+def str2bool(v):
+   if isinstance(v, bool): return v 
+   if v.lower() in {"yes", "true", "t", "y", "1"}: return True 
+   elif v.lower() in {"no", "false", "f", "n", "0"}: return False
+   else:
+      raise ArgumentTypeError("Boolean value expected")
 ##############################
 # From the other repo #
 # parser = argparse.ArgumentParser(description='Style Transfer')
@@ -47,12 +52,16 @@ parser.add_argument('--imgs-path', type=str, default='',
 
 parser.add_argument('--model-name', type=str, default='',
                     help='model name')
-parser.add_argument('--video-source', type=str, required=True, 
+parser.add_argument('--video-source', type=str, 
                     help="Name of source video. Should be in the videos/ folder")
+parser.add_argument("--use-audio", type=str2bool, default=False, help="On the existing_video mode, you can use this flag to activate audio or not. This might slow the process.")
 ##############################
 opt = parser.parse_args()
 
 if opt.is_client and (opt.in_addr is None or opt.out_addr is None):
     raise ValueError("You have to set --in-addr and --out-addr")
 
-    # return opt
+if opt.mode == "existing_video" and opt.video_source is None:
+   raise ValueError("If using existing_video mode, need to give the video-source. If you want to test your video stream, use video_stream mode.")
+if opt.mode != "existing_video" and opt.use_audio:
+   raise ValueError(f"use_audio flag is not available on the {opt.mode} mode. Use the existing_video mode instead")
