@@ -1,6 +1,6 @@
-########### Imports from avatarify #################
+########### Imports from avatarify, not needed for now... #################
 # import os, sys
-from sys import platform as _platform
+""" from sys import platform as _platform
 import glob
 import yaml
 import time
@@ -37,7 +37,7 @@ def select_camera(config):
             log("No cameras are available")
 
     return cam_id
-
+ """
 ####################################################
 import datetime
 import cv2
@@ -52,7 +52,7 @@ import pyaudio
 import wave
 from audio_handler import VideoPlay
 from model_creator import get_all_models
-
+from arguments import opt
 
 def video_real_time( video_source_path, using_local_video, device, use_audio, audio_path=None):#, output_dir='output.avi', fps=30, concat=False):
     #assert os.path.exists(video_source_path), f"Video path {video_source_path}, doesnt exist!"

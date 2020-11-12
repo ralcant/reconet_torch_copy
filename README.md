@@ -4,6 +4,7 @@ This repository is based on this [repository](https://github.com/liulai/reconet-
 ## Installation
 - `conda env create --name reconet_torch --file conda_requirements.txt`
 - `conda activate reconet_torch`
+- Create a `trainedl_models/` and put there all your trained models. See``model_creator.py` for more info
 ## Example uses:
 - To see your styled video stream: `python video_real_time.py --mode video_stream` 
 - For being able to style a (muted) local video: `python video_real_time.py --mode existing_video --video-source daily` 
