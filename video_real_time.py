@@ -54,21 +54,21 @@ from audio_handler import VideoPlay
 from model_creator import get_all_models
 
 
-def video_real_time( video_source_path, audio_path, device):#, output_dir='output.avi', fps=30, concat=False):
-    assert os.path.exists(video_source_path), f"Video path {video_source_path}, doesnt exist!"
+def video_real_time( video_source_path, using_local_video, device, use_audio, audio_path=None):#, output_dir='output.avi', fps=30, concat=False):
+    #assert os.path.exists(video_source_path), f"Video path {video_source_path}, doesnt exist!"
     vid_obj = cv2.VideoCapture(video_source_path)
     #### Audio Processing ######
-
-    audio_controler = VideoPlay(
-        video_path=video_source_path,
-        audio_path= audio_path,
-        nframes = vid_obj.get(cv2.CAP_PROP_FRAME_COUNT),
-        spf = 1/(vid_obj.get(cv2.CAP_PROP_FPS))
-    )
+    if use_audio:
+       audio_controler = VideoPlay(
+           video_path=video_source_path,
+           audio_path= audio_path,
+           nframes = vid_obj.get(cv2.CAP_PROP_FRAME_COUNT),
+           spf = 1/(vid_obj.get(cv2.CAP_PROP_FPS))
+       )
     ##########
     # If w and h are small enough, then the process will be faster
-    w  = 320 #int(vid_obj.get(cv2.CAP_PROP_FRAME_WIDTH) /3 ) # dividing because we will be resizing!
-    h = 180 #int(vid_obj.get(cv2.CAP_PROP_FRAME_HEIGHT) /3 )# float
+    w  = 240#480 #int(vid_obj.get(cv2.CAP_PROP_FRAME_WIDTH) /3 ) # dividing because we will be resizing!
+    h = 180#360 #int(vid_obj.get(cv2.CAP_PROP_FRAME_HEIGHT) /3 )# float
     img_size = (w, h)
     total_frame_count = 0
     frame_count_fps = 0
@@ -84,12 +84,7 @@ def video_real_time( video_source_path, audio_path, device):#, output_dir='outpu
     models, originals = get_all_models(device)
     curr_model = models[0]
     print("models trained!")
-    # cv2.imshow("test", np.array([[1, 2], [3, 4  ]]))
-    # cap = cv2.VideoCapture(0)
-    # frame, rate = cap.read()
-    # cv2.imshow('test', frame)
     start_time = datetime.datetime.now()
-    
     try:
         while True:
             key = cv2.waitKey(1)
@@ -118,7 +113,6 @@ def video_real_time( video_source_path, audio_path, device):#, output_dir='outpu
                 success, image = vid_obj.read() 
                 if not success: #Finished video!
                     break
-                #print(image.shape)
                 frame = cv2.resize(image, dsize=(w, h))#,fx=1/3, fy=1/3)
                 if curr_model is not None:
                     frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
@@ -135,7 +129,8 @@ def video_real_time( video_source_path, audio_path, device):#, output_dir='outpu
                     frame=cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
                     frame = cv2.resize(frame, dsize=(640, 360))
                 cv2.imshow("video!", frame)
-                audio_controler.play_audio_for_frame(total_frame_count)
+                if use_audio:
+                   audio_controler.play_audio_for_frame(total_frame_count)
                 total_frame_count+=1
 
                 log_fps = False # This might affect the speed of the process..?
@@ -146,9 +141,10 @@ def video_real_time( video_source_path, audio_path, device):#, output_dir='outpu
     except KeyboardInterrupt:
         print("Keyboard Interrupt!")
     process_time += (datetime.datetime.now()-start_time).total_seconds() #To take into account frames before pause
-    audio_controler.close()
-    print(f"Video duration: {5}s")
-    print(f"Process duration (not counting pauses): {process_time}")
+    if use_audio:
+       audio_controler.close()
+    #print(f"Video duration: {5}s")
+    #print(f"Process duration (not counting pauses): {process_time}")
     cv2.destroyAllWindows()
     # end_time=datetime.datetime.now()
     # print('end time:',end_time.strftime('%Y/%m/%d %H:%M:%S'))
@@ -208,11 +204,17 @@ if __name__ == "__main__":
     #     exit(1)
     # log("continuing...")
 
-
-    if opt.mode == "video_real_time":
+    print(opt.use_audio)
+    if opt.mode == "existing_video":
         video_name = opt.video_source
         video_path = f"videos/{video_name}.mp4"
         audio_path = f"audios/{video_name}.wav"
-        video_real_time(video_path, audio_path, device)
+        video_real_time(video_source_path= video_path, using_local_video=True, device=device, use_audio= opt.use_audio, audio_path=audio_path)
+    elif opt.mode == "video_stream":
+        video_name = opt.video_source
+        #video_path = f"videos/{video_name}.mp4"
+        camera = 0
+        audio_path = f"audios/{video_name}.wav"
+        video_real_time(video_source_path = camera, using_local_video=False, device=device, use_audio=opt.use_audio)
     else:
-        print(f"mode: {opt.mode} is not supported here. See video_cv2.py for other modes")
+        print(f"mode: {opt.mode} is not supported here. See video_cv2.py for other modes. Use mode existing_video or video_stream")
