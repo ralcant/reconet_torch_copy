@@ -2,7 +2,7 @@
 This repository is based on this [repository](https://github.com/liulai/reconet-torch)
 
 ## Installation
-- `conda env create --name reconet_torch --file conda_requirements.txt`
+- `conda env create --name reconet_torch --file environment.yaml`
 - `conda activate reconet_torch`
 - Create a `trainedl_models/` and put there all your trained models. See``model_creator.py` for more info
 ## Example uses:
